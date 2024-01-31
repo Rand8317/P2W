@@ -1,3 +1,6 @@
+import random
+import threading
+from datetime import datetime, timedelta
 import uvicorn
 import os
 from fastapi import FastAPI, Form, Request
@@ -9,19 +12,49 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 database = {
+    "winning_numbers": {
+
+    },
     "users": {
 
     },
 }
 
+def get_last_saturday_timestamp():
+    now = datetime.now()
+    last_saturday = datetime.now()
+    if now.weekday() < 5:
+        last_saturday -= timedelta(days=now.weekday() + 2)
+    elif now.weekday() == 6:
+        last_saturday -= timedelta(days=1)
+    elif now.weekday() == 5 and now.hour < 18:
+        last_saturday -= timedelta(days=7)
+    return last_saturday.strftime("%Y%m%d")
+
+
+def count_minutes():
+    now = datetime.now()
+    if now.weekday() == 5 and now.hour == 18:  # is it saturday at 6pm?
+        timestamp = get_last_saturday_timestamp()
+        database["winning_numbers"][timestamp] = random.randint(1, 1000)
+        print("Winning number: %d" % database["winning_numbers"][timestamp])
+    elif len(database["winning_numbers"]) == 0:
+        timestamp = now.strftime("%Y%m%d")
+        database["winning_numbers"][timestamp] = random.randint(1, 1000)
+        print("Winning number: %d" % database["winning_numbers"][timestamp])
+    threading.Timer(60, count_minutes).start()
+
+threading.Timer(1, count_minutes).start()
+
+
 @app.post("/login")
 async def login(email: str = Form(...), password: str = Form(...)):
     if email not in database["users"]:
-        database["users"][email] = {"password": password, "guess": -1}
+        database["users"][email] = {"password": password, "guess": {}}
         return RedirectResponse(f"/?email={email}&guess=-1")
     else:
         if database["users"][email]["password"] == password:
-            return RedirectResponse(f"/?email={email}&guess={database['users'][email]['guess']}")
+            return RedirectResponse(f"/?email={email}&guess={database['users'][email]['guess'][get_last_saturday_timestamp()]}")
     return RedirectResponse("/")
 
 templates = Jinja2Templates(directory="templates")
@@ -30,8 +63,7 @@ templates = Jinja2Templates(directory="templates")
 @app.post("/guess")
 async def guess(request: Request, guess: str = Form(...)):
     email = request.query_params["email"]
-    database["users"][email]["guess"] = guess
-    print(database)
+    database["users"][email]["guess"][get_last_saturday_timestamp()] = guess
     return RedirectResponse(f"/?email={email}&guess={guess}")
 
 
@@ -42,7 +74,7 @@ async def homepage(request: Request):
     email = request.query_params.get("email") or not_logged_in_message
     guess = -1
     if email != not_logged_in_message:
-        guess = request.query_params.get("guess") or database["users"][email]["guess"]
+        guess = request.query_params.get("guess") or database["users"][email]["guess"].get(get_last_saturday_timestamp(), -1)
     return templates.TemplateResponse("index.html", {
         "request": request,
         "name": email,
