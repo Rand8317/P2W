@@ -29,8 +29,9 @@ templates = Jinja2Templates(directory="templates")
 
 @app.post("/guess")
 async def guess(request: Request, guess: str = Form(...)):
-    email = "abc"
+    email = request.query_params["email"]
     database["users"][email]["guess"] = guess
+    print(database)
     return RedirectResponse(f"/?email={email}&guess={guess}")
 
 
@@ -39,11 +40,14 @@ async def guess(request: Request, guess: str = Form(...)):
 async def homepage(request: Request):
     not_logged_in_message = "Please login"
     email = request.query_params.get("email") or not_logged_in_message
+    guess = -1
+    if email != not_logged_in_message:
+        guess = request.query_params.get("guess") or database["users"][email]["guess"]
     return templates.TemplateResponse("index.html", {
         "request": request,
         "name": email,
         "logged_in": email != not_logged_in_message,
-        "guess": request.query_params.get("guess"),
+        "guess": guess,
     })
 
 if __name__ == "__main__":
