@@ -2,6 +2,7 @@ import random
 import threading
 from datetime import datetime, timedelta
 import uvicorn
+import json
 import os
 from fastapi import FastAPI, Form, Request
 from fastapi.staticfiles import StaticFiles
@@ -10,15 +11,6 @@ from fastapi.responses import RedirectResponse
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-database = {
-    "winning_numbers": {
-
-    },
-    "users": {
-
-    },
-}
 
 def get_next_saturday_timestamp():
     now = datetime.now()
@@ -42,6 +34,29 @@ def get_last_saturday_timestamp():
         last_saturday -= timedelta(days=7)
     return last_saturday.strftime("%Y%m%d")
 
+database = {
+    "winning_numbers": {
+        get_last_saturday_timestamp(): random.randint(1, 1000)
+    },
+    "users": {
+
+    },
+}
+
+try:
+    with open("database.json", "r") as f:
+        database = json.load(f)
+except FileNotFoundError:
+    pass
+
+def save_db():
+    with open("database.json", "w") as f:
+        json.dump(database, f)
+
+save_db()
+
+print("Winning number is: %d" % database["winning_numbers"][get_last_saturday_timestamp()])
+
 
 def count_minutes():
     now = datetime.now()
@@ -53,6 +68,7 @@ def count_minutes():
         timestamp = get_last_saturday_timestamp()
         database["winning_numbers"][timestamp] = random.randint(1, 1000)
         print("Winning number: %d" % database["winning_numbers"][timestamp])
+    save_db()
     threading.Timer(60, count_minutes).start()
 
 threading.Timer(1, count_minutes).start()
@@ -65,7 +81,7 @@ async def login(email: str = Form(...), password: str = Form(...)):
         return RedirectResponse(f"/?email={email}&guess=-1")
     else:
         if database["users"][email]["password"] == password:
-            return RedirectResponse(f"/?email={email}&guess={database['users'][email]['guess'][get_next_saturday_timestamp()]}")
+            return RedirectResponse(f"/?email={email}&guess={database['users'][email]['guess'].get(get_next_saturday_timestamp(), -1)}")
     return RedirectResponse("/")
 
 templates = Jinja2Templates(directory="templates")
