@@ -106,6 +106,8 @@ async def homepage(request: Request):
         guess = request.query_params.get("guess") or database["users"][email]["guess"].get(get_next_saturday_timestamp(), -1)
         last_week_guess = database["users"][email]["guess"].get(get_last_saturday_timestamp(), -1)
     last_week_number = database["winning_numbers"][get_last_saturday_timestamp()]
+    last_week_timestamp = get_last_saturday_timestamp()
+    next_week_timestamp = get_next_saturday_timestamp()
     return templates.TemplateResponse("index.html", {
         "request": request,
         "name": email,
@@ -113,6 +115,8 @@ async def homepage(request: Request):
         "guess": guess,
         "last_week_guess": last_week_guess,
         "last_week_number": last_week_number,
+        "last_week_timestamp": last_week_timestamp,
+        "next_week_timestamp": next_week_timestamp,
     })
 
 if __name__ == "__main__":
