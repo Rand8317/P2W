@@ -17,6 +17,9 @@
         {% if guess != '-1' %}
             <p>You have guessed {{ guess }}. If you'd like to change your guess enter it below.</p>
         {% endif %}
+        {% if last_week_guess == last_week_number %}
+            <p>You guessed the number correctly last week! Email hr4hustle@gmail.com to claim your prize!</p>
+        {% endif %}
         <form method="post" action="/guess?email={{ name }}">
             <p>Enter a number between 1 and 1000 for a chance to win the grand prize!</p>
             <input type="number" name="guess" min="1" max="1000"/>

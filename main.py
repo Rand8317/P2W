@@ -20,6 +20,17 @@ database = {
     },
 }
 
+def get_next_saturday_timestamp():
+    now = datetime.now()
+    next_saturday = datetime.now()
+    if now.weekday() < 5:
+        next_saturday += timedelta(days=5 - now.weekday())
+    elif now.weekday() == 6:
+        next_saturday += timedelta(days=6)
+    elif now.weekday() == 5 and now.hour >= 18:
+        next_saturday += timedelta(days=7)
+    return next_saturday.strftime("%Y%m%d")
+
 def get_last_saturday_timestamp():
     now = datetime.now()
     last_saturday = datetime.now()
@@ -35,11 +46,11 @@ def get_last_saturday_timestamp():
 def count_minutes():
     now = datetime.now()
     if now.weekday() == 5 and now.hour == 18:  # is it saturday at 6pm?
-        timestamp = get_last_saturday_timestamp()
+        timestamp = now.strftime("%Y%m%d")
         database["winning_numbers"][timestamp] = random.randint(1, 1000)
         print("Winning number: %d" % database["winning_numbers"][timestamp])
     elif len(database["winning_numbers"]) == 0:
-        timestamp = now.strftime("%Y%m%d")
+        timestamp = get_last_saturday_timestamp()
         database["winning_numbers"][timestamp] = random.randint(1, 1000)
         print("Winning number: %d" % database["winning_numbers"][timestamp])
     threading.Timer(60, count_minutes).start()
@@ -54,7 +65,7 @@ async def login(email: str = Form(...), password: str = Form(...)):
         return RedirectResponse(f"/?email={email}&guess=-1")
     else:
         if database["users"][email]["password"] == password:
-            return RedirectResponse(f"/?email={email}&guess={database['users'][email]['guess'][get_last_saturday_timestamp()]}")
+            return RedirectResponse(f"/?email={email}&guess={database['users'][email]['guess'][get_next_saturday_timestamp()]}")
     return RedirectResponse("/")
 
 templates = Jinja2Templates(directory="templates")
@@ -63,7 +74,8 @@ templates = Jinja2Templates(directory="templates")
 @app.post("/guess")
 async def guess(request: Request, guess: str = Form(...)):
     email = request.query_params["email"]
-    database["users"][email]["guess"][get_last_saturday_timestamp()] = guess
+    database["users"][email]["guess"][get_next_saturday_timestamp()] = guess
+    print(database)
     return RedirectResponse(f"/?email={email}&guess={guess}")
 
 
@@ -73,13 +85,18 @@ async def homepage(request: Request):
     not_logged_in_message = "Please login"
     email = request.query_params.get("email") or not_logged_in_message
     guess = -1
+    last_week_guess = -1
     if email != not_logged_in_message:
-        guess = request.query_params.get("guess") or database["users"][email]["guess"].get(get_last_saturday_timestamp(), -1)
+        guess = request.query_params.get("guess") or database["users"][email]["guess"].get(get_next_saturday_timestamp(), -1)
+        last_week_guess = database["users"][email]["guess"].get(get_last_saturday_timestamp(), -1)
+    last_week_number = database["winning_numbers"][get_last_saturday_timestamp()]
     return templates.TemplateResponse("index.html", {
         "request": request,
         "name": email,
         "logged_in": email != not_logged_in_message,
         "guess": guess,
+        "last_week_guess": last_week_guess,
+        "last_week_number": last_week_number,
     })
 
 if __name__ == "__main__":
